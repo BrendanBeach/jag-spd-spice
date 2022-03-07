@@ -23,6 +23,7 @@ using System.Net.Http;
 using Serilog;
 using Serilog.Exceptions;
 using System.Threading.Tasks;
+using System.Net;
 
 [assembly: ApiController]
 namespace Gov.Jag.Spice.CarlaSync
@@ -123,6 +124,10 @@ namespace Gov.Jag.Spice.CarlaSync
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
+            // workaround for SSL certificate issue
+            ServicePointManager.ServerCertificateValidationCallback =
+                (sender, certificate, chain, sslPolicyErrors) => { return true; };
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -221,8 +226,6 @@ namespace Gov.Jag.Spice.CarlaSync
             {
                 using (var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope())
                 {
-                    log.LogInformation("Creating Hangfire job for Send Results jobs ...");
-                    RecurringJob.AddOrUpdate(() => new CarlaUtils(Configuration, loggerFactory, serviceScope.ServiceProvider.GetRequiredService<FileManager>()).ProcessResults(null), "*/5 * * * *"); // Run every 5 minutes
                     // Process Results in Dynamics
                     IDynamicsClient dynamics = DynamicsSetupUtil.SetupDynamics(Configuration);
                     RecurringJob.AddOrUpdate(() => new DynamicsUtils(Configuration, loggerFactory, dynamics).ProcessBusinessResults(null), Cron.MinuteInterval(5)); // Run every 5 minutes
